@@ -33,10 +33,11 @@ def load_multiple_handwritten_images(image_paths, label_lists):
             margin = 20
             digit = img_gray[max(y - margin, 0):y + h + margin, max(x - margin, 0):x + w + margin]
             digit = cv2.resize(digit, (28, 28))
-            digit = (digit < 70) * digit
+            #digit = (digit < 70) * digit
             digit = digit.astype(np.float32) / 255.
             digit = digit.reshape(1, 28, 28)
             x_data.append(digit)
             t_data.append(labels[i])
 
     return np.array(x_data), np.array(t_data)
+

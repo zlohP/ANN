@@ -7,12 +7,30 @@ from dataset.mnist import load_mnist
 from simple_convnet import SimpleConvNet
 from common.trainer import Trainer
 from dataExpansion import expand_dataset
+from handwrittenNumLoader import load_multiple_handwritten_images
 
+
+#이미지 처리
+#image_paths = ["image_59710386.jpg", "image_90142683.jpg"]
+#label_lists = [[5,9,7,1,0,3,8,6],[9,0,1,4,2,6,3,8]]
+image_paths = [
+    "myDataset/image_59710386.jpg",
+    "myDataset/image_0123456789 (2).jpg"
+]
+
+label_lists = [
+    [5, 9, 7, 1, 0, 3, 8, 6],
+    [0,1,2,3,4,5,6,7,8,9]
+]
+
+x_my, t_my = load_multiple_handwritten_images(image_paths, label_lists)
 # 데이터 읽기
 (x_train, t_train), (x_test, t_test) = load_mnist(flatten=False)
 
-x_train, t_train = x_train[:5000], t_train[:5000]
-x_test, t_test = x_test[:1000], t_test[:1000]
+x_train = np.concatenate((x_train[:4986], x_my),axis=0)
+t_train = np.concatenate((t_train[:4986], t_my),axis=0)
+x_test = np.concatenate((x_test[:986], x_my),axis=0)
+t_test = np.concatenate((t_test[:986], t_my),axis=0)
 
 print("원래:", len(x_train))
 x_train, t_train = expand_dataset(x_train, t_train)
@@ -22,7 +40,7 @@ max_epochs = 20
 
 network = SimpleConvNet(input_dim=(1,28,28), 
                         conv_param = {'filter_num': 30, 'filter_size': 5, 'pad': 0, 'stride': 1},
-                        hidden_size=100, output_size=10, weight_init_std=0.02)
+                        hidden_size=100, output_size=10, weight_init_std=0.01)
                         
 trainer = Trainer(network, x_train, t_train, x_test, t_test,
                   epochs=max_epochs, mini_batch_size=100,

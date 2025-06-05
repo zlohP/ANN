@@ -99,15 +99,17 @@ class SimpleConvNet:
         if t.ndim != 1 : t = np.argmax(t, axis=1)
         
         acc = 0.0
-        
-        for i in range(int(x.shape[0] / batch_size)):
-            tx = x[i*batch_size:(i+1)*batch_size]
-            tt = t[i*batch_size:(i+1)*batch_size]
+        total = 0
+
+        for i in range(0, x.shape[0], batch_size):
+            tx = x[i:i + batch_size]
+            tt = t[i:i + batch_size]
             y = self.predict(tx, train_flg=False)
             y = np.argmax(y, axis=1)
-            acc += np.sum(y == tt) 
-        
-        return acc / x.shape[0]
+            acc += np.sum(y == tt)
+            total += len(tx)
+
+        return acc / total
 
     def numerical_gradient(self, x, t):
         """기울기를 구한다（수치미분）.
