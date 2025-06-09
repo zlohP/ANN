@@ -1,41 +1,96 @@
-# make_test_dataset_3d.py
-
-import pickle
-from handwrittenNumLoader import load_multiple_handwritten_images
+import cv2
+import numpy as np
 import matplotlib.pyplot as plt
+import pickle
+from simple_convnet import SimpleConvNet  # 너의 모델
 
-# 1. 손글씨 이미지 경로 리스트
+# --- 모델 생성 및 파라미터 로드 ---
+model = SimpleConvNet(input_dim=(1, 28, 28),
+                      conv_param={'filter_num': 30, 'filter_size': 5, 'pad': 0, 'stride': 1},
+                      hidden_size=100, output_size=10, weight_init_std=0.01)
+model.load_params("params.pkl")
+
+# --- 이미지 경로 목록 (여러 이미지 처리 가능) ---
 image_paths = [
-    "myDataset/image_59710386.jpg", "myDataset/image_0123456789 (2).jpg"
-]
+    "myDataset/image_4135680927.jpg",
+    "myDataset/image_5790142683 (2).jpg",
+    "myDataset/image_5790142683.jpg",
+    "myDataset/image_7162035984.jpg",
+    "myDataset/image_9746130528.jpg" ]
 
-# 2. 각 이미지에 있는 숫자들의 정답 라벨 리스트
-label_lists = [
-    [5, 9, 7, 1, 0, 3, 8, 6], [0,1,2,3,4,5,6,7,8,9]
+# --- 전체 데이터 저장용 ---
+x_data = []
+t_data = []
 
-]
+# --- 이미지별 처리 루프 ---
+for image_path in image_paths:
+    img = cv2.imread(image_path)
+    img_copy = img.copy()
 
-# 3. 숫자 이미지 자르고 (1,28,28) 형식으로 전처리
-x_test, t_test = load_multiple_handwritten_images(image_paths, label_lists)
+    rects = []
+    drawing = False
+    ix, iy = -1, -1
 
+    def draw_rectangle(event, x, y, flags, param):
+        global ix, iy, drawing, rects, img_copy
 
-# 자른 숫자 이미지들이 잘 들어갔는지 확인
-print(f"총 {len(x_test)}개의 숫자 이미지가 감지됨")
+        if event == cv2.EVENT_LBUTTONDOWN:
+            drawing = True
+            ix, iy = x, y
 
-plt.figure(figsize=(15, 3))
+        elif event == cv2.EVENT_MOUSEMOVE and drawing:
+            img_copy = img.copy()
+            cv2.rectangle(img_copy, (ix, iy), (x, y), (0, 255, 0), 2)
 
-for i in range(len(x_test)):
-    plt.subplot(1, len(x_test), i + 1)
-    plt.imshow(x_test[i][0], cmap='gray')  # x_test[i].shape = (1, 28, 28)
-    plt.title(str(t_test[i]))
-    plt.axis('off')
+        elif event == cv2.EVENT_LBUTTONUP:
+            drawing = False
+            cv2.rectangle(img_copy, (ix, iy), (x, y), (0, 255, 0), 2)
+            rect = (min(ix, x), min(iy, y), abs(x - ix), abs(y - iy))
+            rects.append(rect)
+            print(f"사각형 추가됨: {rect}")
 
-plt.tight_layout()
-plt.show()
-# 4. 데이터셋 저장
+    cv2.namedWindow("Select digits")
+    cv2.setMouseCallback("Select digits", draw_rectangle)
+
+    print(f"\n🖱️ {image_path}에서 숫자 네모로 감싸고 Enter (↩️) 키로 종료")
+    while True:
+        cv2.imshow("Select digits", img_copy)
+        key = cv2.waitKey(1) & 0xFF
+        if key == 13:  # Enter
+            break
+    cv2.destroyAllWindows()
+
+    print(f"\n총 {len(rects)}개의 사각형이 선택되었습니다.")
+
+    for i, (x, y, w, h) in enumerate(rects):
+        cropped = img[max(y, 0):y+h, max(x, 0):x+w]
+        gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
+        resized = cv2.resize(gray, (28, 28), interpolation=cv2.INTER_NEAREST)
+        norm = resized.astype('float32') / 255.0
+        norm = 1.0 - norm  # 흰 배경, 검정 숫자
+
+        test_input = norm.reshape(1, 1, 28, 28)
+        pred = model.predict(test_input)
+        pred_label = int(np.argmax(pred))
+
+        # 사용자 확인
+        plt.imshow(norm, cmap='gray')
+        plt.title(f"예측값: {pred_label}")
+        plt.axis('off')
+        plt.show()
+
+        true_label = input(f"[{i}] 정답 라벨 입력 (Enter=예측값 {pred_label}): ").strip()
+        label = pred_label if true_label == "" else int(true_label)
+
+        x_data.append(norm)
+        t_data.append(label)
+
+# --- 저장 ---
+x_data = np.array(x_data).reshape(-1, 28, 28)
+t_data = np.array(t_data)
+
 with open("TestDataSet3D.pkl", "wb") as f:
-    pickle.dump((x_test, t_test), f)
+    pickle.dump((x_data, t_data), f)
 
 print("저장 완료! TestDataSet3D.pkl 생성됨")
-print(f"x_test shape: {x_test.shape}")  # → (N, 1, 28, 28)
-print(f"t_test shape: {t_test.shape}")  # → (N,)
+print(f"\n✅ 총 {len(x_data)}개의 숫자 이미지가 저장되었습니다.")

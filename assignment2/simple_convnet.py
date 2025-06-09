@@ -61,17 +61,17 @@ class SimpleConvNet:
         self.layers['Relu1'] = Relu()
         self.layers['Pool1'] = Pooling(pool_h=2, pool_w=2, stride=2)
         self.layers['Affine1'] = Affine(self.params['W2'], self.params['b2'])
-
         self.layers['BN2'] = BatchNormalization(self.params['gamma2'], self.params['beta2'])
 
         self.layers['Relu2'] = Relu()
+        self.layers['Dropout1'] = Dropout(0.4)
         self.layers['Affine2'] = Affine(self.params['W3'], self.params['b3'])
 
         self.last_layer = SoftmaxWithLoss()
 
     def predict(self, x, train_flg=False):
         for layer in self.layers.values():
-            if isinstance(layer, BatchNormalization):
+            if isinstance(layer, (Dropout,BatchNormalization)):
                 x = layer.forward(x, train_flg)
             else:
                 x = layer.forward(x)

@@ -14,6 +14,7 @@ x_test, t_test = datasetL
 idx = np.arange(x_test.shape[0])
 np.random.shuffle(idx)
 x_test = x_test[idx]
+x_test = np.expand_dims(x_test, axis=1)
 t_test = t_test[idx]
 network = SimpleConvNet(input_dim=(1,28,28),
                         conv_param = {'filter_num': 30, 'filter_size': 5, 'pad': 0, 'stride': 1},
@@ -24,4 +25,4 @@ network.load_params("params.pkl")
 print("Load Network Parameters!")
 
 test_acc = network.accuracy(x_test, t_test)
-print(test_acc)
+print(test_acc*100, "%")

@@ -1,3 +1,4 @@
+#모델이 시험에서 예측한 거 확인
 import matplotlib.pyplot as plt
 import pickle
 import numpy as np
@@ -5,7 +6,7 @@ from simple_convnet import SimpleConvNet
 
 with open('TestDataSet3D.pkl', 'rb') as f:
     x_test, t_test = pickle.load(f)
-
+x_test = np.expand_dims(x_test, axis=1)
 print("📏 x_test.shape:", x_test.shape)  # ← 이걸 꼭 확인해봐
 # 예: (5, 1, 28, 28)
 

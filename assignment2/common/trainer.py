@@ -9,7 +9,7 @@ class Trainer:
     """
     def __init__(self, network, x_train, t_train, x_test, t_test,
                  epochs=20, mini_batch_size=100,
-                 optimizer='adam', optimizer_param={'lr':0.01},
+                 optimizer='adamgrad', optimizer_param={'lr':0.01},
                  evaluate_sample_num_per_epoch=None, verbose=True, weight_decay_lambda=0):
         self.network = network
         self.verbose = verbose
@@ -28,7 +28,7 @@ class Trainer:
         self.optimizer = optimizer_class_dict[optimizer.lower()](**optimizer_param)
         
         self.train_size = x_train.shape[0]
-        self.iter_per_epoch = max(self.train_size / mini_batch_size, 1)
+        self.iter_per_epoch = max(int(self.train_size / mini_batch_size), 1)
         self.max_iter = int(epochs * self.iter_per_epoch)
         self.current_iter = 0
         self.current_epoch = 0

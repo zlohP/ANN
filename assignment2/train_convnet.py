@@ -1,4 +1,5 @@
 # coding: utf-8
+import pickle
 import sys, os
 sys.path.append(os.pardir)  # 부모 디렉터리의 파일을 가져올 수 있도록 설정
 import numpy as np
@@ -10,33 +11,35 @@ from dataExpansion import expand_dataset
 from handwrittenNumLoader import load_multiple_handwritten_images
 
 
-#이미지 처리
-#image_paths = ["image_59710386.jpg", "image_90142683.jpg"]
-#label_lists = [[5,9,7,1,0,3,8,6],[9,0,1,4,2,6,3,8]]
-image_paths = [
-    "myDataset/image_59710386.jpg",
-    "myDataset/image_0123456789 (2).jpg"
-]
+with open('Dataset3D_1.pkl', 'rb') as f:
+    datasetL = pickle.load(f)
+x_train, t_train = datasetL
+x_train = np.expand_dims(x_train, axis=1)
 
-label_lists = [
-    [5, 9, 7, 1, 0, 3, 8, 6],
-    [0,1,2,3,4,5,6,7,8,9]
-]
+# 데이터 확장
+x_aug, t_aug = expand_dataset(x_train, t_train)
 
-x_my, t_my = load_multiple_handwritten_images(image_paths, label_lists)
-# 데이터 읽기
-(x_train, t_train), (x_test, t_test) = load_mnist(flatten=False)
+# 새 파일로 저장
+with open("Dataset3D_1_expanded.pkl", "wb") as f:
+    pickle.dump((x_aug, t_aug), f)
 
-x_train = np.concatenate((x_train[:4986], x_my),axis=0)
-t_train = np.concatenate((t_train[:4986], t_my),axis=0)
-x_test = np.concatenate((x_test[:986], x_my),axis=0)
-t_test = np.concatenate((t_test[:986], t_my),axis=0)
+"""with open('dataset/mnist.pkl', 'rb') as f:
+    datasetL = pickle.load(f)
+x_train2 = datasetL['train_img']
+x_train2 = x_train2.reshape(-1, 28, 28)
+x_train2 = np.expand_dims(x_train2, axis=1)
+t_train2 = datasetL['train_label']
 
-print("원래:", len(x_train))
-x_train, t_train = expand_dataset(x_train, t_train)
-print("확장 후:", len(x_train))
 
-max_epochs = 20
+x_train = np.concatenate([x_train, x_train2[:(5000-len(x_train))]])
+t_train = np.concatenate([t_train, t_train2[:(5000-len(t_train))]])"""
+
+with open('TestDataSet3D.pkl', 'rb') as f:
+	datasetL = pickle.load(f)
+x_test, t_test = datasetL
+x_test = np.expand_dims(x_test, axis=1)
+
+max_epochs = 40
 
 network = SimpleConvNet(input_dim=(1,28,28), 
                         conv_param = {'filter_num': 30, 'filter_size': 5, 'pad': 0, 'stride': 1},
@@ -44,7 +47,7 @@ network = SimpleConvNet(input_dim=(1,28,28),
                         
 trainer = Trainer(network, x_train, t_train, x_test, t_test,
                   epochs=max_epochs, mini_batch_size=100,
-                  optimizer='Adam', optimizer_param={'lr': 0.001},
+                  optimizer='AdaGrad', optimizer_param={'lr': 0.001},
                   weight_decay_lambda=1e-4,
                   evaluate_sample_num_per_epoch=1000)
 trainer.train()
