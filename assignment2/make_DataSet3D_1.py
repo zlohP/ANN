@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import pickle
-from simple_convnet import SimpleConvNet  # 너의 모델
+from simple_convnet import SimpleConvNet
 
 # --- 모델 생성 및 파라미터 로드 ---
 model = SimpleConvNet(input_dim=(1, 28, 28),

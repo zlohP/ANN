@@ -1,44 +1,40 @@
 import numpy as np
 import cv2
+from scipy.ndimage import gaussian_filter, map_coordinates
 
 #이미지 하나에 대해 확장하여 변형된 이미지 반환(리스트)
 def augment_image(img):
-    augmented = []
-    augmented.append(img)  # 원본 포함
+    augmented = [img]
+    center = (14, 14)
 
-    center = (14, 14)  # 이미지 중심
+    augmented.append(elastic_transform(img, alpha=36, sigma=6))
+    augmented.append(elastic_transform(img, alpha=32, sigma=5))
+    augmented.append(elastic_transform(img, alpha=40, sigma=7))
 
-    # 회전 (±15도, ±10도)
+    # 회전
     for angle in [-15, -10, 10, 15]:
         M = cv2.getRotationMatrix2D(center, angle, 1.0)
-        rotated = cv2.warpAffine(img, M, (28, 28), borderValue=0)
-        augmented.append(rotated)
+        augmented.append(cv2.warpAffine(img, M, (28,28), borderValue=0))
 
-        # 이동 (상하/좌우 ±2픽셀)
-    for dx, dy in [(0, -2), (0, 2), (-2, 0), (2, 0)]:
-        M = np.float32([[1, 0, dx], [0, 1, dy]])
-        shifted = cv2.warpAffine(img, M, (28, 28), borderValue=0)
-        augmented.append(shifted)
+    # 이동
+    for dx, dy in [(0,-2),(0,2),(-2,0),(2,0)]:
+        M = np.float32([[1,0,dx],[0,1,dy]])
+        augmented.append(cv2.warpAffine(img, M, (28,28), borderValue=0))
 
-        # 확대/축소
-    for scale in [0.9, 0.95, 1.05, 1.1]:
-        M = cv2.getRotationMatrix2D(center, 0, scale)
-        scaled = cv2.warpAffine(img, M, (28, 28), borderValue=0)
-        augmented.append(scaled)
+    # 스케일
+    for s in [0.9,0.95,1.05,1.1]:
+        M = cv2.getRotationMatrix2D(center, 0, s)
+        augmented.append(cv2.warpAffine(img, M, (28,28), borderValue=0))
 
-        # 좌우 반전
-        flipped = cv2.flip(img, 1)
-        augmented.append(flipped)
+    # 밝기 조절
+    for alpha in [0.8,1.2]:
+        tmp = img.astype(np.float32) * alpha
+        augmented.append(np.clip(tmp,0,255).astype(np.uint8))
 
-        # 밝기 조절 (조금 어둡게/밝게)
-        for alpha in [0.8, 1.2]:
-            bright = np.clip(img * alpha, 0, 255).astype(np.uint8)
-            augmented.append(bright)
-
-        # Gaussian 노이즈 추가
-        noise = np.random.normal(0, 10, img.shape).astype(np.uint8)
-        noisy = np.clip(img + noise, 0, 255).astype(np.uint8)
-        augmented.append(noisy)
+    # Gaussian 노이즈
+    noise = np.random.normal(0,10,img.shape)
+    tmp = img.astype(np.float32) + noise
+    augmented.append(np.clip(tmp,0,255).astype(np.uint8))
 
     return augmented
 
@@ -59,3 +55,14 @@ def expand_dataset(x, t):
     t_aug = np.array(t_aug)
 
     return x_aug, t_aug
+
+def elastic_transform(img, alpha, sigma):
+    random_state = np.random.RandomState(None)
+    shape = img.shape
+
+    dx = gaussian_filter((random_state.rand(*shape) * 2 - 1), sigma) * alpha
+    dy = gaussian_filter((random_state.rand(*shape) * 2 - 1), sigma) * alpha
+
+    x, y = np.meshgrid(np.arange(shape[1]), np.arange(shape[0]))
+    indices = (y + dy).reshape(-1), (x + dx).reshape(-1)
+    return map_coordinates(img, indices, order=1, mode='reflect').reshape(shape)

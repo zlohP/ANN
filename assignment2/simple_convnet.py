@@ -25,47 +25,52 @@ class SimpleConvNet:
         'sigmoid'나 'xavier'로 지정하면 'Xavier 초깃값'으로 설정
     """
     def __init__(self, input_dim=(1, 28, 28), 
-                 conv_param={'filter_num':30, 'filter_size':5, 'pad':0, 'stride':1},
-                 hidden_size=100, output_size=10, weight_init_std=0.01):
-        filter_num = conv_param['filter_num']
+                 conv_param={'filter_num1':16, 'filter_num2':32, 'filter_size':3, 'pad':1, 'stride':1},
+                 hidden_size=64, output_size=10, weight_init_std=0.02):
+        filter_num1 = conv_param['filter_num1']
+        filter_num2 = conv_param['filter_num2']
         filter_size = conv_param['filter_size']
         filter_pad = conv_param['pad']
         filter_stride = conv_param['stride']
         input_size = input_dim[1]
-        conv_output_size = (input_size - filter_size + 2*filter_pad) / filter_stride + 1
-        pool_output_size = int(filter_num * (conv_output_size/2) * (conv_output_size/2))
+        conv_output_size = input_size
+        pool_output_size = int(filter_num2 * (conv_output_size // 4) ** 2)  # 7x7 map
 
         # 가중치 초기화
         self.params = {}
-        self.params['W1'] = weight_init_std * \
-                            np.random.randn(filter_num, input_dim[0], filter_size, filter_size)
-        self.params['b1'] = np.zeros(filter_num)
-        self.params['W2'] = weight_init_std * \
-                            np.random.randn(pool_output_size, hidden_size)
-        self.params['b2'] = np.zeros(hidden_size)
-        self.params['W3'] = weight_init_std * \
-                            np.random.randn(hidden_size, output_size)
-        self.params['b3'] = np.zeros(output_size)
-        self.params['gamma1'] = np.ones(filter_num)
-        self.params['beta1'] = np.zeros(filter_num)
-        self.params['gamma2'] = np.ones(hidden_size)
-        self.params['beta2'] = np.zeros(hidden_size)
+        self.params['W1'] = weight_init_std * np.random.randn(filter_num1, input_dim[0], filter_size, filter_size)
+        self.params['b1'] = np.zeros(filter_num1)
+        self.params['W2'] = weight_init_std * np.random.randn(filter_num2, filter_num1, filter_size, filter_size)
+        self.params['b2'] = np.zeros(filter_num2)
+        self.params['W3'] = weight_init_std * np.random.randn(pool_output_size, hidden_size)
+        self.params['b3'] = np.zeros(hidden_size)
+        self.params['W4'] = weight_init_std * np.random.randn(hidden_size, output_size)
+        self.params['b4'] = np.zeros(output_size)
+
+        self.params['gamma1'] = np.ones(filter_num1)
+        self.params['beta1'] = np.zeros(filter_num1)
+        self.params['gamma2'] = np.ones(filter_num2)
+        self.params['beta2'] = np.zeros(filter_num2)
+        self.params['gamma3'] = np.ones(hidden_size)
+        self.params['beta3'] = np.zeros(hidden_size)
 
         # 계층 생성
         self.layers = OrderedDict()
-        self.layers['Conv1'] = Convolution(self.params['W1'], self.params['b1'],
-                                           conv_param['stride'], conv_param['pad'])
-
+        self.layers['Conv1'] = Convolution(self.params['W1'], self.params['b1'], filter_stride, filter_pad)
         self.layers['BN1'] = BatchNormalization(self.params['gamma1'], self.params['beta1'])
-
         self.layers['Relu1'] = Relu()
         self.layers['Pool1'] = Pooling(pool_h=2, pool_w=2, stride=2)
-        self.layers['Affine1'] = Affine(self.params['W2'], self.params['b2'])
-        self.layers['BN2'] = BatchNormalization(self.params['gamma2'], self.params['beta2'])
 
+        self.layers['Conv2'] = Convolution(self.params['W2'], self.params['b2'], filter_stride, filter_pad)
+        self.layers['BN2'] = BatchNormalization(self.params['gamma2'], self.params['beta2'])
         self.layers['Relu2'] = Relu()
-        self.layers['Dropout1'] = Dropout(0.4)
-        self.layers['Affine2'] = Affine(self.params['W3'], self.params['b3'])
+        self.layers['Pool2'] = Pooling(pool_h=2, pool_w=2, stride=2)
+
+        self.layers['Affine1'] = Affine(self.params['W3'], self.params['b3'])
+        self.layers['BN3'] = BatchNormalization(self.params['gamma3'], self.params['beta3'])
+        self.layers['Relu3'] = Relu()
+        self.layers['Dropout1'] = Dropout(0.3)
+        self.layers['Affine2'] = Affine(self.params['W4'], self.params['b4'])
 
         self.last_layer = SoftmaxWithLoss()
 
@@ -89,7 +94,7 @@ class SimpleConvNet:
         loss = self.last_layer.forward(y, t)
         #가중치 감소(L2 정규화)
         weight_decay = 0
-        for i in range(1,4):
+        for i in range(1,5):
             W = self.params['W' + str(i)]
             weight_decay += 0.5 * weight_decay_lambda * np.sum(W**2)
 
@@ -163,13 +168,15 @@ class SimpleConvNet:
         # 결과 저장
         grads = {}
         grads['W1'], grads['b1'] = self.layers['Conv1'].dW, self.layers['Conv1'].db
-        grads['W2'], grads['b2'] = self.layers['Affine1'].dW, self.layers['Affine1'].db
-        grads['W3'], grads['b3'] = self.layers['Affine2'].dW, self.layers['Affine2'].db
+        grads['W2'], grads['b2'] = self.layers['Conv2'].dW, self.layers['Conv2'].db
+        grads['W3'], grads['b3'] = self.layers['Affine1'].dW, self.layers['Affine1'].db
+        grads['W4'], grads['b4'] = self.layers['Affine2'].dW, self.layers['Affine2'].db
         grads['gamma1'] = self.layers['BN1'].dgamma
         grads['beta1'] = self.layers['BN1'].dbeta
         grads['gamma2'] = self.layers['BN2'].dgamma
         grads['beta2'] = self.layers['BN2'].dbeta
-
+        grads['gamma3'] = self.layers['BN3'].dgamma
+        grads['beta3'] = self.layers['BN3'].dbeta
         return grads
         
     def save_params(self, file_name="params.pkl"):
@@ -178,6 +185,8 @@ class SimpleConvNet:
         params['running_var1'] = self.layers['BN1'].running_var
         params['running_mean2'] = self.layers['BN2'].running_mean
         params['running_var2'] = self.layers['BN2'].running_var
+        params['running_mean3'] = self.layers['BN3'].running_mean
+        params['running_var3'] = self.layers['BN3'].running_var
 
         for key, val in self.params.items():
             params[key] = val
@@ -194,12 +203,21 @@ class SimpleConvNet:
         self.layers['BN1'].running_var = params['running_var1']
         self.layers['BN2'].running_mean = params['running_mean2']
         self.layers['BN2'].running_var = params['running_var2']
+        self.layers['BN3'].running_mean = params['running_mean3']
+        self.layers['BN3'].running_var = params['running_var3']
 
         self.layers['BN1'].gamma = self.params['gamma1']
         self.layers['BN1'].beta = self.params['beta1']
         self.layers['BN2'].gamma = self.params['gamma2']
         self.layers['BN2'].beta = self.params['beta2']
+        self.layers['BN3'].gamma = self.params['gamma3']
+        self.layers['BN3'].beta = self.params['beta3']
 
-        for i, key in enumerate(['Conv1', 'Affine1', 'Affine2']):
-            self.layers[key].W = self.params['W' + str(i+1)]
-            self.layers[key].b = self.params['b' + str(i+1)]
+        self.layers['Conv1'].W = self.params['W1']
+        self.layers['Conv1'].b = self.params['b1']
+        self.layers['Conv2'].W = self.params['W2']
+        self.layers['Conv2'].b = self.params['b2']
+        self.layers['Affine1'].W = self.params['W3']
+        self.layers['Affine1'].b = self.params['b3']
+        self.layers['Affine2'].W = self.params['W4']
+        self.layers['Affine2'].b = self.params['b4']

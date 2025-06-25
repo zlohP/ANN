@@ -9,8 +9,8 @@ class Trainer:
     """
     def __init__(self, network, x_train, t_train, x_test, t_test,
                  epochs=20, mini_batch_size=100,
-                 optimizer='adamgrad', optimizer_param={'lr':0.01},
-                 evaluate_sample_num_per_epoch=None, verbose=True, weight_decay_lambda=0):
+                 optimizer='adam', optimizer_param={'lr':0.01},
+                 evaluate_sample_num_per_epoch=None, verbose=True, weight_decay_lambda=1e-4):
         self.network = network
         self.verbose = verbose
         self.x_train = x_train
